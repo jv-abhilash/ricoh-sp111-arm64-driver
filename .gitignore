@@ -1,0 +1,6 @@
+*.pyc
+__pycache__/
+*.bak
+*.log
+.DS_Store
+ricoh-sp1xx-drv.py.bak

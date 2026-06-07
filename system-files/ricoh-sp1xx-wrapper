@@ -1,0 +1,55 @@
+#!/bin/sh
+# Ricoh SP 111 CUPS filter wrapper - ARM64/Debian 13 version
+# Overrides CUPS restricted environment (TMPDIR/HOME) then writes JBIG data
+# to stdout so CUPS' USB backend forwards it to the printer.
+
+# Override CUPS restricted environment variables
+# CUPS sets TMPDIR=/var/spool/cups/tmp which blocks GS on ARM64
+export TMPDIR=/tmp
+export HOME=/tmp
+export FONTCONFIG_PATH=/etc/fonts
+export GS_LIB=/usr/share/ghostscript
+
+TMPPS=$(mktemp /tmp/ricoh-input-XXXXXX.ps)
+TMPJBG=$(mktemp /tmp/ricoh-output-XXXXXX.jbg)
+LOGFILE=/tmp/ricoh-wrapper.log
+
+echo "=== JOB START $(date) ===" >> $LOGFILE
+echo "ARGS: $@" >> $LOGFILE
+
+# Read PS data from stdin (CUPS pipes it)
+cat > "$TMPPS"
+echo "INPUT size: $(ls -lh $TMPPS)" >> $LOGFILE
+
+if [ ! -s "$TMPPS" ]; then
+    echo "ERROR: Empty input, aborting" >> $LOGFILE
+    rm -f "$TMPPS" "$TMPJBG"
+    exit 1
+fi
+
+# Run driver to generate JBG print data
+python3 /opt/ricoh_driver/ricoh-sp1xx-drv.py "$1" "$2" "$3" "$4" "$5" "$TMPPS" > "$TMPJBG" 2>> $LOGFILE
+RET=$?
+echo "Driver exit: $RET, JBG: $(ls -lh $TMPJBG)" >> $LOGFILE
+
+# Send to printer if output is valid (>200 bytes means real content)
+if [ $RET -eq 0 ] && [ -s "$TMPJBG" ] && [ $(stat -c%s "$TMPJBG") -gt 200 ]; then
+    # Write to stdout — CUPS USB backend forwards this to /dev/usb/lp*
+    # Direct device write is attempted first; CUPS sandbox normally blocks it,
+    # so stdout is the reliable path on Debian 13 with Sandboxing relaxed.
+    USB_DEV=$(ls /dev/usb/lp* 2>/dev/null | head -1)
+    if [ -n "$USB_DEV" ] && [ -w "$USB_DEV" ]; then
+        cat "$TMPJBG" > "$USB_DEV"
+        echo "Sent directly to USB $USB_DEV: $?" >> $LOGFILE
+    else
+        cat "$TMPJBG"
+        echo "Sent to CUPS stdout (USB backend will forward to printer)" >> $LOGFILE
+    fi
+else
+    echo "JBG too small or driver failed - not sending" >> $LOGFILE
+    rm -f "$TMPPS" "$TMPJBG"
+    exit 1
+fi
+
+rm -f "$TMPPS" "$TMPJBG"
+exit 0

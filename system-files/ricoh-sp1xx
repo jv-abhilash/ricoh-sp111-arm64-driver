@@ -1,0 +1,2 @@
+#!/bin/sh
+python3 /opt/ricoh_driver/ricoh-sp1xx-drv.py "$@"

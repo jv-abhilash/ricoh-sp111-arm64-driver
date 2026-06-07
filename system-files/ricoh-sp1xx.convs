@@ -1,0 +1,5 @@
+application/pdf application/vnd.cups-ricoh-sp1xx 100 pdftops
+application/postscript application/vnd.cups-ricoh-sp1xx 100 -
+application/vnd.cups-postscript application/vnd.cups-ricoh-sp1xx 100 -
+text/plain application/vnd.cups-ricoh-sp1xx 100 texttopdf
+application/vnd.cups-ricoh-sp1xx application/vnd.cups-raw 0 ricoh-sp1xx-wrapper
