@@ -372,20 +372,25 @@ def doJobTrivial():
     #we can convert only PBM->JBIG(needed by printer)
     #gs -dQUIET -dBATCH -dNOPAUSE -dSAFER -sDEVICE=pbmraw -sOutputFile=test.pbm -r600 <inputfile>
     term("gs "+ lgs_ops+" -sDEVICE=pbmraw -sOutputFile="+__temp_dir+"%03d-page.pbm"	+" -r"+__resolution +"x600 "+ linput)
-    inx = 1; # iterate pages images and send them to file, first page has index 1, not 0
-    lheader = False 
-    while True:
-        lpage = makePageFN(inx,"-page.pbm") #make page file name from index
+    # Find last page for reverse order printing (page 1 ends up on top)
+    inx = 1
+    while os.path.exists(makePageFN(inx,"-page.pbm")):
+        inx += 1
+    llast = inx - 1
+    log("TOTAL PAGES="+str(llast))
+    lheader = False
+    inx = llast
+    while inx >= 1:
+        lpage = makePageFN(inx,"-page.pbm")
         log("doing page: "+lpage)
-        if not os.path.exists(lpage): break #end of pages
-        if inx==1: 
-            send_file_head() # send header before the first page, if page exists
+        if not os.path.exists(lpage): break
+        if not lheader:
+            send_file_head()
             lheader = True
         if not addPage(lpage): break
-        term("rm "+lpage) #remove page
-        inx=inx+1 # next page
-    #### file generated, add footer ####
-    if lheader: sendFileFoot() #there header had been sent, so send footer
+        term("rm "+lpage)
+        inx -= 1
+    if lheader: sendFileFoot()
 
 
 #find last page - used for backward printing and to avoid extrapage of 
